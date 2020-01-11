@@ -1,15 +1,16 @@
 package wildhap;
 
-import java.util.BitSet;
+import java.util.*;
+import java.io.*;
 
 public class WildHap {
 
-    static char seq[][];
     static BitSet set[][];
-    static int j;
+    static int j, numRows;
     static int consCnt[];
     static long numblocks;
     static long numDFScalls;
+    static TreeMap<Integer, TreeSet<Integer>> shape;
 
     public static int DFS(int i, BitSet rows) {
         numDFScalls++;
@@ -29,7 +30,7 @@ public class WildHap {
             for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
                 // operate on index r here
                 for (int c = i + 1; c <= j; c++) {
-                    if (seq[r][c] != '*') {
+                    if (!set[c][2].get(r)) {
                         consCnt[c]--;
                         if (consCnt[c] <= 0) {
                             ok = false;
@@ -40,15 +41,14 @@ public class WildHap {
                     break; // or (r+1) would overflow
                 }
             }
-
-            if (ok && j < seq[0].length - 1) {
+            if (ok && j < set.length - 1) {
                 int has0 = 0, has1 = 0;
                 for (int r = kp.nextSetBit(0); r >= 0; r = kp.nextSetBit(r + 1)) {
                     // operate on index r here
-                    if (seq[r][j + 1] == '0') {
+                    if (set[j + 1][0].get(r)) {
                         has0 = 1;
                     }
-                    if (seq[r][j + 1] == '1') {
+                    if (set[j + 1][1].get(r)) {
                         has1 = 1;
                         if (has0 == 1) {
                             break;
@@ -63,14 +63,16 @@ public class WildHap {
                 }
             }
             if (ok && kp.cardinality() > 1 && (i == 0 || DFS(i - 1, kp) != 1)) { // left maximal
-                //System.out.println("block found: " + kp + " [" + i + "," + j + "]");
+                //System.out.println(kp.cardinality() + "," + (j - i + 1));
+                shape.putIfAbsent(kp.cardinality(), new TreeSet<Integer>());
+                shape.get(kp.cardinality()).add(j - i + 1);
                 numblocks++;
             }
             //consCnt[i] = 0;
             for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
                 // operate on index r here
                 for (int c = i + 1; c <= j; c++) {
-                    if (seq[r][c] != '*') {
+                    if (!set[c][2].get(r)) {
                         consCnt[c]++;
                     }
                 }
@@ -83,57 +85,72 @@ public class WildHap {
     }
 
     public static void main(String[] args) {
-
-        seq = new char[][]{
-            {'*', '*', '0'},
-            {'*', '*', '1'},
-            {'*', '0', '*'},
-            {'*', '1', '*'},
-            {'0', '*', '*'},
-            {'1', '*', '*'}};
-        /*
-        int n = 1000;
-        int m = 10000;
-        double w = 0.1;
-        seq = new char[n][m];
-        for (int r = 0; r < n; r++) {
-            for (int j = 0; j < m; j++) {
-                if (Math.random() < 0.5) {
-                    seq[r][j] = '0';
-                } else {
-                    seq[r][j] = '1';
-                }
-                if (Math.random() < w) {
-                    seq[r][j] = '*';
-                }
-            }
+        if (args.length != 2) {
+            System.out.println("Usage: WildHap <file> <*prob>");
+            System.exit(0);
         }
-         */
+        String fileName = args[0];
+        double prob = Double.parseDouble(args[1]);
+        System.out.println("filename: " + fileName);
+        System.out.println("* prob: " + prob);
+        numRows = 0;
+        File f = new File(fileName);
+        try {
+            FileInputStream inputStream = new FileInputStream(f);
+            Scanner sc = new Scanner(inputStream, "UTF-8");
 
-        consCnt = new int[seq[0].length];
-        set = new BitSet[seq[0].length][3];
-        for (int j = 0; j < seq[0].length; j++) {
-            set[j][0] = new BitSet(seq.length);
-            set[j][1] = new BitSet(seq.length);
-            set[j][2] = new BitSet(seq.length);
-            for (int r = 0; r < seq.length; r++) {
-                if (seq[r][j] == '0') {
-                    set[j][0].set(r);
+            while (sc.hasNextLine()) {
+                String line = sc.nextLine();
+                if (set == null) {
+                    set = new BitSet[line.length()][3];
                 }
-                if (seq[r][j] == '1') {
-                    set[j][1].set(r);
+                for (int j = 0; j < line.length(); j++) {
+                    char c = line.charAt(j);
+                    if (Math.random() < prob) {
+                        c = '*';
+                    }
+                    if (set[j][0] == null) {
+                        set[j][0] = new BitSet();
+                        set[j][1] = new BitSet();
+                        set[j][2] = new BitSet();
+                    }
+                    if (c == '0') {
+                        set[j][0].set(numRows);
+                    }
+                    if (c == '1') {
+                        set[j][1].set(numRows);
+                    }
+                    if (c == '*') {
+                        set[j][2].set(numRows);
+                    }
                 }
-                if (seq[r][j] == '*') {
-                    set[j][2].set(r);
-                }
+                numRows++;
             }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
-        BitSet allRows = new BitSet(seq.length);
-        allRows.set(0, seq.length);
-        for (j = 0; j < seq[0].length; j++) {
+        consCnt = new int[set.length];
+        shape = new TreeMap<Integer, TreeSet<Integer>>();
+        BitSet allRows = new BitSet(numRows);
+        allRows.set(0, numRows);
+        for (j = 0; j < set.length; j++) {
             DFS(j, allRows);
-            System.out.println("finished col: " + j + ", # of dfs calls: " + numDFScalls + ", # of blocks: " + numblocks);
+            //System.out.println("finished col: " + j + ", # of dfs calls: " + numDFScalls + ", # of blocks: " + numblocks);
         }
 
+        System.out.println("# of dfs calls: " + numDFScalls);
+        System.out.println("# of blocks: " + numblocks);
+
+        System.out.println("writing dist file");
+        try {
+            BufferedWriter distOut = new BufferedWriter(new FileWriter(fileName + ".dist-" + prob + ".txt"));
+            for (Integer Ksize : shape.keySet()) {
+                for (Integer Length : shape.get(Ksize)) {
+                    distOut.write(Ksize + "," + Length + '\n');
+                }
+            }
+            distOut.close();
+        } catch (Exception ex) {
+        }
     }
 }

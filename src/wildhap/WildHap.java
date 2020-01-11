@@ -135,14 +135,17 @@ public class WildHap {
         allRows.set(0, numRows);
         for (j = 0; j < set.length; j++) {
             DFS(j, allRows);
-            //System.out.println("finished col: " + j + ", # of dfs calls: " + numDFScalls + ", # of blocks: " + numblocks);
+            if (j % 1000 == 0) {
+                System.out.println("finished col: " + j + ", # of dfs calls: " + numDFScalls + ", # of blocks: " + numblocks);
+            }
         }
-
-        System.out.println("# of dfs calls: " + numDFScalls);
-        System.out.println("# of blocks: " + numblocks);
-
-        System.out.println("writing dist file");
         try {
+            BufferedWriter infoOut = new BufferedWriter(new FileWriter(fileName + ".info-" + prob + ".txt"));
+            infoOut.write("# of row: " + numRows + '\n');
+            infoOut.write("# of SNPs: " + set.length + '\n');
+            infoOut.write("# of dfs calls: " + numDFScalls + '\n');
+            infoOut.write("# of blocks: " + numblocks + '\n');
+            infoOut.close();
             BufferedWriter distOut = new BufferedWriter(new FileWriter(fileName + ".dist-" + prob + ".txt"));
             for (Integer Ksize : shape.keySet()) {
                 for (Integer Length : shape.get(Ksize)) {

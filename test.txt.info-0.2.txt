@@ -1,0 +1,7 @@
+elapsed time (sec): 0.05
+# of row: 4
+# of SNPs: 6
+# of dfs calls: 14
+# of blocks: 4
+avg |K|: 3.25
+avg # of block SNPs: 3.50

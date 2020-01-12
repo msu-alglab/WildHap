@@ -9,8 +9,8 @@ import java.io.*;
 public class WildHap {
 
     static BitSet set[][];
-    static int numRows;
-    static AtomicLong numblocks, numDFScalls;
+    static int numRows, maxRows, maxSNPs;
+    static AtomicLong numblocks, numDFScalls, totalKsize, totalSNPsize;
     static ConcurrentSkipListMap<Integer, ConcurrentSkipListSet<Integer>> shape;
 
     public static int DFS(int i, BitSet rows, int j, int[] consCnt) {
@@ -68,6 +68,8 @@ public class WildHap {
                 shape.putIfAbsent(kp.cardinality(), new ConcurrentSkipListSet<Integer>());
                 shape.get(kp.cardinality()).add(j - i + 1);
                 numblocks.incrementAndGet();
+                totalKsize.addAndGet(kp.cardinality());
+                totalSNPsize.addAndGet(j - i + 1);
             }
             //consCnt[i] = 0;
             for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
@@ -94,6 +96,10 @@ public class WildHap {
         double prob = Double.parseDouble(args[1]);
         System.out.println("filename: " + fileName);
         System.out.println("* prob: " + prob);
+
+        maxRows = 1000;
+        maxSNPs = 100000;
+
         numRows = 0;
         File f = new File(fileName);
         try {
@@ -103,9 +109,9 @@ public class WildHap {
             while (sc.hasNextLine()) {
                 String line = sc.nextLine();
                 if (set == null) {
-                    set = new BitSet[line.length()][3];
+                    set = new BitSet[Math.min(maxSNPs, line.length())][3];
                 }
-                for (int j = 0; j < line.length(); j++) {
+                for (int j = 0; j < Math.min(maxSNPs, line.length()); j++) {
                     char c = line.charAt(j);
                     if (Math.random() < prob) {
                         c = '*';
@@ -126,6 +132,9 @@ public class WildHap {
                     }
                 }
                 numRows++;
+                if (numRows == maxRows) {
+                    break;
+                }
             }
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -133,6 +142,8 @@ public class WildHap {
         long startTime = System.nanoTime(); // start meansuring time after I/O
         numDFScalls = new AtomicLong(0);
         numblocks = new AtomicLong(0);
+        totalKsize = new AtomicLong(0);
+        totalSNPsize = new AtomicLong(0);
         shape = new ConcurrentSkipListMap<Integer, ConcurrentSkipListSet<Integer>>();
 
         BitSet allRows = new BitSet(numRows);
@@ -146,20 +157,23 @@ public class WildHap {
             }
         });
 
- 
         long estimatedTime = System.nanoTime() - startTime;
         double seconds = (double) estimatedTime / 1000000000;
-        String time = String.format("%.2f", seconds);
-        System.out.println(time);
+        double avgKsize = (double) totalKsize.get() / numblocks.get();
+        double avgSNPsize = (double) totalSNPsize.get() / numblocks.get();
+        String[] names = fileName.split("/");
+        String shortFileName = names[names.length - 1];
         try {
-            BufferedWriter infoOut = new BufferedWriter(new FileWriter(fileName + ".info-" + prob + ".txt"));
-            infoOut.write("elapsed time (sec): " + time + '\n');
+            BufferedWriter infoOut = new BufferedWriter(new FileWriter(shortFileName + ".info-" + prob + ".txt"));
+            infoOut.write("elapsed time (sec): " + String.format("%.2f", seconds) + '\n');
             infoOut.write("# of row: " + numRows + '\n');
             infoOut.write("# of SNPs: " + set.length + '\n');
             infoOut.write("# of dfs calls: " + numDFScalls.get() + '\n');
             infoOut.write("# of blocks: " + numblocks.get() + '\n');
+            infoOut.write("avg |K|: " + String.format("%.2f", avgKsize) + '\n');
+            infoOut.write("avg # of block SNPs: " + String.format("%.2f", avgSNPsize) + '\n');
             infoOut.close();
-            BufferedWriter distOut = new BufferedWriter(new FileWriter(fileName + ".dist-" + prob + ".txt"));
+            BufferedWriter distOut = new BufferedWriter(new FileWriter(shortFileName + ".dist-" + prob + ".txt"));
             for (Integer Ksize : shape.keySet()) {
                 for (Integer Length : shape.get(Ksize)) {
                     distOut.write(Ksize + "," + Length + '\n');

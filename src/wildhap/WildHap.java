@@ -1,19 +1,20 @@
 package wildhap;
 
 import java.util.*;
+import java.util.stream.IntStream;
+import java.util.concurrent.atomic.*;
+import java.util.concurrent.*;
 import java.io.*;
 
 public class WildHap {
 
     static BitSet set[][];
-    static int j, numRows;
-    static int consCnt[];
-    static long numblocks;
-    static long numDFScalls;
-    static TreeMap<Integer, TreeSet<Integer>> shape;
+    static int numRows;
+    static AtomicLong numblocks, numDFScalls;
+    static ConcurrentSkipListMap<Integer, ConcurrentSkipListSet<Integer>> shape;
 
-    public static int DFS(int i, BitSet rows) {
-        numDFScalls++;
+    public static int DFS(int i, BitSet rows, int j, int[] consCnt) {
+        numDFScalls.incrementAndGet();
         int branchs = 0;
         for (int b = 0; b <= 1; b++) {
             BitSet kp = (BitSet) set[i][b].clone();
@@ -62,11 +63,11 @@ public class WildHap {
                     ok = false; // not right maximal
                 }
             }
-            if (ok && kp.cardinality() > 1 && (i == 0 || DFS(i - 1, kp) != 1)) { // left maximal
+            if (ok && kp.cardinality() > 1 && (i == 0 || DFS(i - 1, kp, j, consCnt) != 1)) { // left maximal
                 //System.out.println(kp.cardinality() + "," + (j - i + 1));
-                shape.putIfAbsent(kp.cardinality(), new TreeSet<Integer>());
+                shape.putIfAbsent(kp.cardinality(), new ConcurrentSkipListSet<Integer>());
                 shape.get(kp.cardinality()).add(j - i + 1);
-                numblocks++;
+                numblocks.incrementAndGet();
             }
             //consCnt[i] = 0;
             for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
@@ -129,22 +130,34 @@ public class WildHap {
         } catch (Exception ex) {
             ex.printStackTrace();
         }
-        consCnt = new int[set.length];
-        shape = new TreeMap<Integer, TreeSet<Integer>>();
+        long startTime = System.nanoTime(); // start meansuring time after I/O
+        numDFScalls = new AtomicLong(0);
+        numblocks = new AtomicLong(0);
+        shape = new ConcurrentSkipListMap<Integer, ConcurrentSkipListSet<Integer>>();
+
         BitSet allRows = new BitSet(numRows);
         allRows.set(0, numRows);
-        for (j = 0; j < set.length; j++) {
-            DFS(j, allRows);
-            if (j % 1000 == 0) {
-                System.out.println("finished col: " + j + ", # of dfs calls: " + numDFScalls + ", # of blocks: " + numblocks);
+        AtomicInteger numCols = new AtomicInteger(0);
+        IntStream.range(0, set.length).parallel().forEach((j) -> {
+            DFS(j, allRows, j, new int[j + 1]);
+            int x = numCols.incrementAndGet();
+            if (x % 10000 == 0) {
+                System.out.println("finished col: " + x + ", # of dfs calls: " + numDFScalls.get() + ", # of blocks: " + numblocks.get());
             }
-        }
+        });
+
+ 
+        long estimatedTime = System.nanoTime() - startTime;
+        double seconds = (double) estimatedTime / 1000000000;
+        String time = String.format("%.2f", seconds);
+        System.out.println(time);
         try {
             BufferedWriter infoOut = new BufferedWriter(new FileWriter(fileName + ".info-" + prob + ".txt"));
+            infoOut.write("elapsed time (sec): " + time + '\n');
             infoOut.write("# of row: " + numRows + '\n');
             infoOut.write("# of SNPs: " + set.length + '\n');
-            infoOut.write("# of dfs calls: " + numDFScalls + '\n');
-            infoOut.write("# of blocks: " + numblocks + '\n');
+            infoOut.write("# of dfs calls: " + numDFScalls.get() + '\n');
+            infoOut.write("# of blocks: " + numblocks.get() + '\n');
             infoOut.close();
             BufferedWriter distOut = new BufferedWriter(new FileWriter(fileName + ".dist-" + prob + ".txt"));
             for (Integer Ksize : shape.keySet()) {

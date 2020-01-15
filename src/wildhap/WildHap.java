@@ -12,6 +12,7 @@ public class WildHap {
     static int numRows;
     static AtomicLong numblocks, numDFScalls, totalKsize, totalSNPsize;
     static ConcurrentSkipListMap<Integer, ConcurrentSkipListSet<Integer>> shape;
+    static int minBlockArea;
 
     public static int DFS(int i, BitSet rows, int j, int[] consCnt) {
         numDFScalls.incrementAndGet();
@@ -22,27 +23,11 @@ public class WildHap {
             consCnt[i] = kp.cardinality();
             kp.or(set[i][2]); // 2 = *
             kp.and(rows);
-            BitSet rm = (BitSet) set[i][1 - b].clone();
-            rm.and(rows);
             boolean ok = (consCnt[i] > 0);
             if (ok) {
                 branchs++;
             }
-            for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
-                // operate on index r here
-                for (int c = i + 1; c <= j; c++) {
-                    if (!set[c][2].get(r)) {
-                        consCnt[c]--;
-                        if (consCnt[c] <= 0) {
-                            ok = false;
-                        }
-                    }
-                }
-                if (r == Integer.MAX_VALUE) {
-                    break; // or (r+1) would overflow
-                }
-            }
-            if (ok && j < set.length - 1) {
+            if (ok && j < set.length - 1) { // check right maximal
                 int has0 = 0, has1 = 0;
                 for (int r = kp.nextSetBit(0); r >= 0; r = kp.nextSetBit(r + 1)) {
                     // operate on index r here
@@ -63,24 +48,44 @@ public class WildHap {
                     ok = false; // not right maximal
                 }
             }
-            if (ok && kp.cardinality() > 1 && (i == 0 || DFS(i - 1, kp, j, consCnt) != 1)) { // left maximal
-                //System.out.println(kp.cardinality() + "," + (j - i + 1));
-                shape.putIfAbsent(kp.cardinality(), new ConcurrentSkipListSet<Integer>());
-                shape.get(kp.cardinality()).add(j - i + 1);
-                numblocks.incrementAndGet();
-                totalKsize.addAndGet(kp.cardinality());
-                totalSNPsize.addAndGet(j - i + 1);
-            }
-            //consCnt[i] = 0;
-            for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
-                // operate on index r here
-                for (int c = i + 1; c <= j; c++) {
-                    if (!set[c][2].get(r)) {
-                        consCnt[c]++;
+            ok = ok && (kp.cardinality() > 1) && ((j + 1) * kp.cardinality() >= minBlockArea);
+            if (ok) {
+                BitSet rm = (BitSet) set[i][1 - b].clone();
+                rm.and(rows);
+                for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
+                    // operate on index r here
+                    for (int c = i + 1; c <= j; c++) {
+                        if (!set[c][2].get(r)) {
+                            consCnt[c]--;
+                            if (consCnt[c] <= 0) {
+                                ok = false;
+                            }
+                        }
+                    }
+                    if (r == Integer.MAX_VALUE) {
+                        break; // or (r+1) would overflow
                     }
                 }
-                if (r == Integer.MAX_VALUE) {
-                    break; // or (r+1) would overflow
+                if (ok && (i == 0 || DFS(i - 1, kp, j, consCnt) != 1)) { // left maximal
+                    if (kp.cardinality() * (j - i + 1) >= minBlockArea) {
+                        //System.out.println(kp.cardinality() + "," + (j - i + 1));
+                        shape.putIfAbsent(kp.cardinality(), new ConcurrentSkipListSet<Integer>());
+                        shape.get(kp.cardinality()).add(j - i + 1);
+                        numblocks.incrementAndGet();
+                        totalKsize.addAndGet(kp.cardinality());
+                        totalSNPsize.addAndGet(j - i + 1);
+                    }
+                }
+                for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
+                    // operate on index r here
+                    for (int c = i + 1; c <= j; c++) {
+                        if (!set[c][2].get(r)) {
+                            consCnt[c]++;
+                        }
+                    }
+                    if (r == Integer.MAX_VALUE) {
+                        break; // or (r+1) would overflow
+                    }
                 }
             }
         }
@@ -88,17 +93,18 @@ public class WildHap {
     }
 
     public static void main(String[] args) {
-        if (args.length < 2) {
-            System.out.println("Usage: WildHap file *prob <maxRows maxSNPs>");
+        if (args.length < 3) {
+            System.out.println("Usage: WildHap file *prob minblockarea <maxRows maxSNPs>");
             System.exit(0);
         }
         String fileName = args[0];
         double prob = Double.parseDouble(args[1]);
+        minBlockArea = Integer.parseInt(args[2]);
         System.out.println("filename: " + fileName);
         System.out.println("* prob: " + prob);
         int maxRows = Integer.MAX_VALUE;
         int maxSNPs = Integer.MAX_VALUE;
-        if (args.length == 4) {
+        if (args.length == 5) {
             maxRows = Integer.parseInt(args[2]);
             maxSNPs = Integer.parseInt(args[3]);
             System.out.println("maxSNPs: " + prob);
@@ -168,16 +174,17 @@ public class WildHap {
         String[] names = fileName.split("/");
         String shortFileName = names[names.length - 1];
         try {
-            BufferedWriter infoOut = new BufferedWriter(new FileWriter(shortFileName + ".info-" + prob + ".txt"));
+            BufferedWriter infoOut = new BufferedWriter(new FileWriter(shortFileName + ".info-" + prob + "-" + minBlockArea + ".txt"));
             infoOut.write("elapsed time (sec): " + String.format("%.2f", seconds) + '\n');
             infoOut.write("# of row: " + numRows + '\n');
             infoOut.write("# of SNPs: " + set.length + '\n');
+            infoOut.write("minblockarea: " + minBlockArea + '\n');
             infoOut.write("# of dfs calls: " + numDFScalls.get() + '\n');
             infoOut.write("# of blocks: " + numblocks.get() + '\n');
             infoOut.write("avg |K|: " + String.format("%.2f", avgKsize) + '\n');
             infoOut.write("avg # of block SNPs: " + String.format("%.2f", avgSNPsize) + '\n');
             infoOut.close();
-            BufferedWriter distOut = new BufferedWriter(new FileWriter(shortFileName + ".dist-" + prob + ".txt"));
+            BufferedWriter distOut = new BufferedWriter(new FileWriter(shortFileName + ".dist-" + prob + "-" + minBlockArea + ".txt"));
             for (Integer Ksize : shape.keySet()) {
                 for (Integer Length : shape.get(Ksize)) {
                     distOut.write(Ksize + "," + Length + '\n');

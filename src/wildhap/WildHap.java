@@ -27,6 +27,22 @@ public class WildHap {
             if (ok) {
                 branchs++;
             }
+            BitSet rm = (BitSet) set[i][1 - b].clone();
+            rm.and(rows);
+            for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
+                // operate on index r here
+                for (int c = i + 1; c <= j; c++) {
+                    if (!set[c][2].get(r)) {
+                        consCnt[c]--;
+                        if (consCnt[c] <= 0) {
+                            ok = false;
+                        }
+                    }
+                }
+                if (r == Integer.MAX_VALUE) {
+                    break; // or (r+1) would overflow
+                }
+            }
             if (ok && j < set.length - 1) { // check right maximal
                 int has0 = 0, has1 = 0;
                 for (int r = kp.nextSetBit(0); r >= 0; r = kp.nextSetBit(r + 1)) {
@@ -48,46 +64,29 @@ public class WildHap {
                     ok = false; // not right maximal
                 }
             }
-            ok = ok && (kp.cardinality() > 1) && ((j + 1) * kp.cardinality() >= minBlockArea);
-            if (ok) {
-                BitSet rm = (BitSet) set[i][1 - b].clone();
-                rm.and(rows);
-                for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
-                    // operate on index r here
-                    for (int c = i + 1; c <= j; c++) {
-                        if (!set[c][2].get(r)) {
-                            consCnt[c]--;
-                            if (consCnt[c] <= 0) {
-                                ok = false;
-                            }
-                        }
-                    }
-                    if (r == Integer.MAX_VALUE) {
-                        break; // or (r+1) would overflow
-                    }
-                }
-                if (ok && (i == 0 || DFS(i - 1, kp, j, consCnt) != 1)) { // left maximal
-                    if (kp.cardinality() * (j - i + 1) >= minBlockArea) {
-                        //System.out.println(kp.cardinality() + "," + (j - i + 1));
-                        shape.putIfAbsent(kp.cardinality(), new ConcurrentSkipListSet<Integer>());
-                        shape.get(kp.cardinality()).add(j - i + 1);
-                        numblocks.incrementAndGet();
-                        totalKsize.addAndGet(kp.cardinality());
-                        totalSNPsize.addAndGet(j - i + 1);
-                    }
-                }
-                for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
-                    // operate on index r here
-                    for (int c = i + 1; c <= j; c++) {
-                        if (!set[c][2].get(r)) {
-                            consCnt[c]++;
-                        }
-                    }
-                    if (r == Integer.MAX_VALUE) {
-                        break; // or (r+1) would overflow
-                    }
+            ok = ok && (kp.cardinality() > 1) && (((j + 1) * kp.cardinality()) >= minBlockArea);
+            if (ok && (i == 0 || DFS(i - 1, kp, j, consCnt) != 1)) { // left maximal
+                if ((kp.cardinality() * (j - i + 1)) >= minBlockArea) {
+                    //System.out.println(kp.cardinality() + "," + (j - i + 1));
+                    shape.putIfAbsent(kp.cardinality(), new ConcurrentSkipListSet<Integer>());
+                    shape.get(kp.cardinality()).add(j - i + 1);
+                    numblocks.incrementAndGet();
+                    totalKsize.addAndGet(kp.cardinality());
+                    totalSNPsize.addAndGet(j - i + 1);
                 }
             }
+            for (int r = rm.nextSetBit(0); r >= 0; r = rm.nextSetBit(r + 1)) {
+                // operate on index r here
+                for (int c = i + 1; c <= j; c++) {
+                    if (!set[c][2].get(r)) {
+                        consCnt[c]++;
+                    }
+                }
+                if (r == Integer.MAX_VALUE) {
+                    break; // or (r+1) would overflow
+                }
+            }
+
         }
         return branchs;
     }
@@ -105,10 +104,10 @@ public class WildHap {
         int maxRows = Integer.MAX_VALUE;
         int maxSNPs = Integer.MAX_VALUE;
         if (args.length == 5) {
-            maxRows = Integer.parseInt(args[2]);
-            maxSNPs = Integer.parseInt(args[3]);
-            System.out.println("maxSNPs: " + prob);
-            System.out.println("maxRows: " + prob);
+            maxRows = Integer.parseInt(args[3]);
+            maxSNPs = Integer.parseInt(args[4]);
+            System.out.println("maxRows: " + maxRows);
+            System.out.println("maxSNPs: " + maxSNPs);
         }
         numRows = 0;
         File f = new File(fileName);

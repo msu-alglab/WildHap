@@ -9,7 +9,7 @@ import java.io.*;
 public class WildHap {
 
     static BitSet set[][];
-    static int numRows, maxRows, maxSNPs;
+    static int numRows;
     static AtomicLong numblocks, numDFScalls, totalKsize, totalSNPsize;
     static ConcurrentSkipListMap<Integer, ConcurrentSkipListSet<Integer>> shape;
 
@@ -88,18 +88,22 @@ public class WildHap {
     }
 
     public static void main(String[] args) {
-        if (args.length != 2) {
-            System.out.println("Usage: WildHap <file> <*prob>");
+        if (args.length < 2) {
+            System.out.println("Usage: WildHap file *prob <maxRows maxSNPs>");
             System.exit(0);
         }
         String fileName = args[0];
         double prob = Double.parseDouble(args[1]);
         System.out.println("filename: " + fileName);
         System.out.println("* prob: " + prob);
-
-        maxRows = 1000;
-        maxSNPs = 100000;
-
+        int maxRows = Integer.MAX_VALUE;
+        int maxSNPs = Integer.MAX_VALUE;
+        if (args.length == 4) {
+            maxRows = Integer.parseInt(args[2]);
+            maxSNPs = Integer.parseInt(args[3]);
+            System.out.println("maxSNPs: " + prob);
+            System.out.println("maxRows: " + prob);
+        }
         numRows = 0;
         File f = new File(fileName);
         try {

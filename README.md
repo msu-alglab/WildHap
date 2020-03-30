@@ -20,8 +20,8 @@ WildHap takes five arguments, two of which are optional.
 * input filename
 * probability of replacing a SNP call with a *
 * minimum block area for reported blocks (width x height)
-* maximum rows to process (optional)
-* maximum SNPs (columns) to process (optional)
+* maximum number of rows to process (optional)
+* maximum number of SNPs (columns) to process (optional)
 
 ### Output
 

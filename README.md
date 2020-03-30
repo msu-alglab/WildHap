@@ -7,8 +7,10 @@ Given a file of _k_ sequences with _n_ SNP calls each
 maximal wildcard haplotype blocks.
 
 This implementation was built to test the algorithm described in "Maxmimal
-Perfect Haplotype Blocks with Wildcards" over an input data set with varying
-proportions of SNP calls unknown.
+Perfect Haplotype Blocks with Wildcards," to be published in a Special Issue of
+iScience covering RECOMB-Seq 2020, over an input data set with varying
+proportions of SNP calls unknown. It can be built using
+[Netbeans](https://netbeans.org/).
 
 ### Input
 
